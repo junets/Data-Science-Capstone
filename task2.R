@@ -1,4 +1,5 @@
 # task 2
+
 blogs_file   <- "./en_US/en_US.blogs.txt"
 news_file    <- "./en_US/en_US.news.txt"
 twitter_file <- "./en_US/en_US.twitter.txt"  
@@ -75,6 +76,7 @@ texttogether <- gsub("'", "'", texttogether)
 texttogether <- gsub("â€™", "'", texttogether)
 texttogether <- gsub("\'[sS]", "", texttogether)
 texttogether <- gsub("[^A-z ]", "", texttogether)
+texttogether <- gsub("[tT]he", "", texttogether)
 # Transfer to lower words, remove Punctiation, Numbers whitespace
 library(tm)
 corpus <- Corpus(VectorSource(texttogether))
@@ -87,8 +89,9 @@ corpus <- corpus %>%
     tm_map(PlainTextDocument) %>%
     tm_map(removePunctuation) %>%
     tm_map(removeNumbers) %>%
-    tm_map(stripWhitespace) %>%
+    tm_map(stripWhitespace)
     #tm_map(removeWords, stopwords("english"))
+
 # remove profanity
 library(rvest)
 words <- read_html('https://raw.githubusercontent.com/LDNOOBW/List-of-Dirty-Naughty-Obscene-and-Otherwise-Bad-Words/master/en',encoding="UTF-8")
@@ -101,14 +104,13 @@ removeURL <- function(x) gsub("http[^[:space:]]*", "", x)
 corpus <- tm_map(corpus, content_transformer(removeURL))
 corpus <- gsub("http\\w+","", corpus)
 
-
 ## Tokenization
 library(RWeka)
-unigram <- NGramTokenizer(corpus, Weka_control(min = 1, max = 1, delimiters = " \\r\\n\\t.,;:\"()?!"))
+# unigram <- NGramTokenizer(corpus, Weka_control(min = 1, max = 1, delimiters = " \\r\\n\\t.,;:\"()?!"))
 Bigram <- NGramTokenizer(corpus, Weka_control(min = 2, max = 2, delimiters = " \\r\\n\\t.,;:\"()?!"))
 Trigram <- NGramTokenizer(corpus, Weka_control(min = 3, max = 3, delimiters = " \\r\\n\\t.,;:\"()?!"))
 
-unigram <- arrange(data.frame(table(unigram)),desc(Freq))
+# unigram <- arrange(data.frame(table(unigram)),desc(Freq))
 Bigram <- arrange(data.frame(table(Bigram)), desc(Freq))
 Trigram <- arrange(data.frame(table(Trigram)),desc(Freq))
 
