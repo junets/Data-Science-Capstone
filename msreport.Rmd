@@ -1,0 +1,201 @@
+---
+title: "Milestone Report"
+output: html_document
+---
+
+# Explore the Data
+## Main Purpose
+
+The main purpose of data exploration is to establish an airscape of the data, which is essential for the next steps of analysis. 
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ngram)
+library(dplyr)
+library(knitr)
+library(rvest)
+library(tm)
+library(RWeka)
+library(ggplot2)
+library(wordcloud)
+options(warn = -1)
+```
+
+## Access the Data 
+
+```{r}
+blogs_file   <- "./en_US/en_US.blogs.txt"
+news_file    <- "./en_US/en_US.news.txt"
+twitter_file <- "./en_US/en_US.twitter.txt"  
+
+blogs_size   <- file.size(blogs_file) / (2^20)
+news_size    <- file.size(news_file) / (2^20)
+twitter_size <- file.size(twitter_file) / (2^20)
+
+blogs   <- readLines(blogs_file)
+news    <- readLines(news_file)
+twitter <- readLines(twitter_file) 
+
+blogs_lines   <- length(blogs)
+news_lines    <- length(news)
+twitter_lines <- length(twitter)
+total_lines   <- blogs_lines + news_lines + twitter_lines
+
+blogs_nchar   <- nchar(blogs)
+news_nchar    <- nchar(news)
+twitter_nchar <- nchar(twitter)
+
+blogs_nchar_sum   <- sum(blogs_nchar)
+news_nchar_sum    <- sum(news_nchar)
+twitter_nchar_sum <- sum(twitter_nchar)
+
+barplot(c(blogs_nchar_sum, news_nchar_sum, twitter_nchar_sum),
+        names = c("blogs", "news", "twitter"),
+        ylab =  " Total Number of Characters", xlab = "File Name",
+        col = c('red', 'lightyellow', 'lightgreen'))
+title("Comparing Total # of Chracters per file")
+```
+
+## Print the Information of Data in a Table
+
+```{r}
+blogs_words <- wordcount(blogs, sep = " ")
+news_words  <- wordcount(news,  sep = " ")
+twitter_words <- wordcount(news, sep = " ")
+
+
+file_sum <- data.frame(f_names = c("blogs", "news", "twitter"),
+                           f_size  = c(blogs_size, news_size, twitter_size),
+                           f_lines = c(blogs_lines, news_lines, twitter_lines),
+                           n_char =  c(blogs_nchar_sum, news_nchar_sum, twitter_nchar_sum),
+                           n_words = c(blogs_words, news_words, twitter_words))
+
+file_sum <- mutate(file_sum,
+                       pct_n_char = round(n_char/sum(n_char), 2),
+                       pct_lines = round(f_lines/sum(f_lines), 2),
+                       pct_words = round(n_words/sum(n_words), 2))
+kable(file_sum)
+```
+
+## Create a Sample of the Data
+
+Because there are tons of data. If we process whole data set, there would be a huge computation and time demanding. So, sample the data by random sampling method. And only 1% of the whole data is sampled. Even though, there is only 1% of the data set. It is still a huge data set.
+
+```{r}
+sample_pct = 0.01
+set.seed(2021)
+
+blogs_size   <- blogs_lines * sample_pct
+news_size    <- news_lines * sample_pct
+twitter_size <- twitter_lines * sample_pct
+
+blogs   <- sample(blogs, blogs_size)
+news    <- sample(news, news_size)
+twitter <- sample(twitter, twitter_size)
+texttogether    <- c(blogs, news, twitter)
+length(texttogether)
+```
+
+## Clean the Memory
+
+
+A lot of variables are created from previous processing. To save memory space. We need to remove the unnecessary variables. And keep the useful ones.
+
+```{r}
+keep <- c("file_sum","blogs","news","twitter","texttogether")
+kpindex = c()
+for(i in keep) kpindex <- c(kpindex,which(i == ls()))
+rm(list = ls()[-kpindex])
+ls()
+gc()
+```
+
+## Cleaning the Data
+
+To begin the text mining. The unnecessary data should be eliminated. Such as punctuation, stopwords, and weird strings.
+
+```{r}
+texttogether <- gsub("'", "'", texttogether)
+texttogether <- gsub("â€™", "'", texttogether)
+texttogether <- gsub("\'[sS]", "", texttogether)
+texttogether <- gsub("[^A-z ]", "", texttogether)
+# Transfer to lower words, remove Punctiation, Numbers whitespace
+
+corpus <- Corpus(VectorSource(texttogether))
+print(as.character(corpus[[1]]))
+
+corpus <- corpus %>% 
+    tm_map(tolower) %>%
+    tm_map(PlainTextDocument) %>%
+    tm_map(removePunctuation) %>%
+    tm_map(removeNumbers) %>%
+    tm_map(stripWhitespace) %>%
+    tm_map(removeWords, stopwords("english"))
+# remove profanity
+
+words <- read_html('https://raw.githubusercontent.com/LDNOOBW/List-of-Dirty-Naughty-Obscene-and-Otherwise-Bad-Words/master/en',encoding="UTF-8")
+res <-words %>% html_nodes("p") %>% html_text()
+profanity <- strsplit(res,'\n')[[1]]
+corpus <- tm_map(corpus, removeWords, profanity)
+
+## remove the urls
+removeURL <- function(x) gsub("http[^[:space:]]*", "", x)
+corpus <- tm_map(corpus, content_transformer(removeURL))
+corpus <- gsub("http\\w+","", corpus)
+```
+
+## Tokenization
+
+Tokenization is pre-step of clustering the data. We make the words or phrase as tokens
+
+```{r}
+unigram <- NGramTokenizer(corpus, Weka_control(min = 1, max = 1, delimiters = " \\r\\n\\t.,;:\"()?!"))
+Bigram <- NGramTokenizer(corpus, Weka_control(min = 2, max = 2, delimiters = " \\r\\n\\t.,;:\"()?!"))
+Trigram <- NGramTokenizer(corpus, Weka_control(min = 3, max = 3, delimiters = " \\r\\n\\t.,;:\"()?!"))
+
+unigram <- arrange(data.frame(table(unigram)),desc(Freq))
+Bigram <- arrange(data.frame(table(Bigram)), desc(Freq))
+Trigram <- arrange(data.frame(table(Trigram)),desc(Freq))
+```
+
+## Plot the Data
+
+Plotting is a very useful and intuitionistic way to understand and know the data. We would analysis the unique gram words, binary gram words and triple  gram words. 
+A barplot of the words with top 20 frequence and a wordcloud plot would be presented to give more intuition of the words.
+
+### Unique Gram Words
+
+```{r}
+ggplot(unigram[1:20,], aes(x=reorder(unigram,Freq),y=Freq)) + 
+    geom_col(stat="Identity", fill="pink") +
+    geom_text(aes(label=Freq), vjust=-0.20) + 
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+    coord_flip()
+wordcloud(unigram$unigram, unigram$Freq, min.freq= 500, random.order=TRUE, rot.per=.25, colors = brewer.pal(6, 'Dark2'))
+```
+
+### Binary Gram Words
+
+```{r}
+ggplot(Bigram[1:20,], aes(x=reorder(Bigram,Freq),y=Freq)) + 
+    geom_col(stat="Identity", fill="pink") +
+    geom_text(aes(label=Freq), vjust=-0.20) + 
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+    coord_flip()
+wordcloud(Bigram$Bigram, Bigram$Freq, min.freq= 50, random.order=TRUE, rot.per=.25, colors = brewer.pal(6, 'Dark2'))
+```
+
+### Triple Gram Words
+
+```{r}
+ggplot(Trigram[1:20,], aes(x=reorder(Trigram,Freq),y=Freq)) + 
+    geom_col(stat="Identity", fill="pink") +
+    geom_text(aes(label=Freq), vjust=-0.20) + 
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+    coord_flip()
+wordcloud(Trigram$Trigram, Trigram$Freq, min.freq= 6, random.order=TRUE, rot.per=.25, colors = brewer.pal(6, 'Dark2'))
+```
+
+## The Future Process
+
+The algorithm to predict the typing words and phrase is based on the frequency of the appearing words. A word with higher frequency would appear at the more fronted position of the predicting words.
