@@ -1,0 +1,45 @@
+---
+title: "Data Science Capstone: NLP for Typing Prediction"
+author: "Barry"
+date: "4/27/2021"
+output: ioslides_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## Introduction to This Project
+
+This project is mainly utilize Natural Language Processing to predict what a user is going to type. It is mainly depending on the online sources of tons of sentences and phrases. 
+The work is separated into next three steps:
+
+- Access the text data and clean it
+- Build and modify the predicting model
+- To Present
+
+## Access the text data and clean it
+
+The text data is from online blogs, news and twitter in English. Because the data is a huge data set. So only 1% of the text data is selected randomly. 
+
+Then the profanity, unexpected strings and white spaces are all eliminated. The stop words are kept, Because I found that if stop words are kept, it could increase the precision of prediction. 
+
+## Build and Modify the Predicting Model
+
+After cleaning, the text data of sentences are separated into 2-word, 3-word, 4-word, 5-word and 6-word grams. 
+
+And then, the words are ranked by frequency, the ones with more frequency would be ranked higher than the ones with lower frequency. 
+
+And all the predicted words are kept, no matter whether they are predicted by 2-word, 3-word, 4-word, 5-word or 6-word grams. 
+
+But the one predicted by the grams with more words would have priority to the grams with less words.
+
+## To Present
+
+The prediction model would be presented by the shiny app, which is a user friendly and easy to use online app.
+
+To my surprise, even I loaded a large data set. It responses and calculates fast. 
+
+The model I build shows 10 predicted words at most. You could choose the number to show, which is from 1 to 10.
+
+Here is my work [ngrams](https://junets.shinyapps.io/ngrams/)
